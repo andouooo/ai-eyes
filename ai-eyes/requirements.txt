@@ -1,0 +1,9 @@
+playwright>=1.40
+openai>=1.30
+requests>=2.31
+mss>=9.0
+pillow>=10.0
+PySide6-Essentials>=6.6
+uiautomation>=2.0
+comtypes>=1.2
+winocr>=1.0

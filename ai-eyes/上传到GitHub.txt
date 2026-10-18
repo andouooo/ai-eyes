@@ -1,0 +1,39 @@
+# 把 AI 的眼睛 传到 GitHub（两个办法，选一个）
+
+当前仓库：https://github.com/andouooo/-
+本地目录：E:\桌面\ai-eyes（已经 commit 好了，只差 push）
+
+---
+
+## 方法 A：浏览器上传（最快，不用 token）
+
+1. 打开：https://github.com/andouooo/-/upload/main
+2. 把 `E:\桌面\ai-eyes` 里的**所有文件和文件夹**拖进网页
+   - 注意：拖的是里面的东西（README.md、rival_eye、demo、assets、snapshots、run.py 等），
+     不是把 `ai-eyes` 这个外层文件夹拖进去
+3. 页面下方 Commit changes
+4. 打开 https://github.com/andouooo/- 确认能看到 README 和 rival_eye/
+
+如果提示文件冲突（仓库里已有 README），选覆盖即可。
+
+---
+
+## 方法 B：双击 push.bat（用 token）
+
+1. 打开 https://github.com/settings/tokens
+2. Generate new token (classic)
+3. Note 随便填，Expiration 7 days，勾 **repo**
+4. Generate，复制那串 token
+5. 双击 `E:\桌面\ai-eyes\push.bat`
+6. 粘贴 token，回车
+
+脚本会用本地项目覆盖远端 main（`--force`）。
+仓库里如果有一个初始 README，会被覆盖；如果你在那里面放了东西，先备份。
+
+---
+
+## 推完后
+
+1. 无痕窗口打开 https://github.com/andouooo/-，确认是 **Public**，能看到 README 和源码
+2. 把地址填到报名表的“代码仓库”
+3. 如果之后把仓库改名（建议改成 `ai-eyes`），旧链接会自动跳转
