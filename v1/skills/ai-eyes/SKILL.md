@@ -1,6 +1,13 @@
 ---
 name: ai-eyes
 description: 按名字/进程/句柄捕获 Windows 窗口，返回带 capture_id 的截图证据；用于“看一眼这个窗口/页面/报错”，并把视觉结论绑定到证据。
+agent_created: true
+slug: ai-eyes
+displayName: ai-eyes
+version: 1.0.0
+summary: "按名字/进程/句柄捕获 Windows 窗口，产出可审计的截图证据"
+tags: [windows, screenshot, evidence, vision, desktop, automation]
+license: MIT
 ---
 
 # AI 的眼睛（ai-eyes）
