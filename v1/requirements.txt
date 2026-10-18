@@ -1,0 +1,3 @@
+Pillow>=10.0
+# 可选：verify_evidence.py --ocr 需要（Windows OCR 语言包）
+# winocr>=0.1.6
