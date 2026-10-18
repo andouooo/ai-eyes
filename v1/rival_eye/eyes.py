@@ -67,6 +67,13 @@ _DEFAULT_EXCLUDED_PROCESSES = {
 # DSH 自身的窗口标题
 _DEFAULT_EXCLUDED_TITLES = ("DeepSeek Harness",)
 
+# 敏感窗口：密码管理器 / 网银。SKILL.md 里写了“拒绝”，这里再加一道代码防线，
+# 免得换个 agent 或手滑就直接截了。确需截图时用 --allow-sensitive 显式放行。
+_SENSITIVE_KEYWORDS = (
+    "1password", "bitwarden", "keepass", "lastpass", "enpass", "dashlane",
+    "密码", "密钥", "网银", "网上银行", "支付密码", "wallet", "keystore",
+)
+
 # query 别名（大小写不敏感）；game 故意不猜
 QUERY_ALIASES: dict[str, tuple[str, ...]] = {
     "browser": ("chrome.exe", "msedge.exe", "firefox.exe", "brave.exe"),
@@ -363,6 +370,12 @@ def _titles_differ(a: str, b: str) -> bool:
     return difflib.SequenceMatcher(None, sa, sb).ratio() < 0.5
 
 
+def _is_sensitive(win: dict) -> bool:
+    """密码管理器 / 网银之类的窗口，默认拒绝截图。"""
+    blob = ("%s %s" % (win.get("process", ""), win.get("title", ""))).lower()
+    return any(k in blob for k in _SENSITIVE_KEYWORDS)
+
+
 def _ambiguous(cands: list[dict], reason: str) -> dict:
     return {
         "ambiguous": True,
@@ -602,6 +615,11 @@ def _cmd_capture(args) -> int:
                "candidates": win["candidates"]})
         return 2
 
+    if _is_sensitive(win) and not args.allow_sensitive:
+        return _fail("sensitive",
+                     "这是敏感窗口（密码管理器 / 网银 / 密钥），默认拒绝截图；"
+                     "确需截图请加 --allow-sensitive", 5)
+
     hwnd = win["hwnd"]
     was_minimized = bool(user32.IsIconic(hwnd))
     img = capture_window(hwnd, max_width=args.max_width, crop=args.crop,
@@ -743,6 +761,8 @@ def build_parser() -> _Parser:
                      help="只截一块（原图像素，缩放前），省 token 用")
     cap.add_argument("--restore", action="store_true",
                      help="窗口最小化时先不激活地还原、截完放回（会闪一下，但不抢焦点）")
+    cap.add_argument("--allow-sensitive", action="store_true",
+                     help="允许截密码管理器 / 网银这类敏感窗口（默认拒绝）")
     cap.add_argument("--trigger", default="agent", help="触发者标记（默认 agent）")
     cap.add_argument("--json", action="store_true", help="兼容参数，输出本来就是 JSON")
 

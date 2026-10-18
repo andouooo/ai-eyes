@@ -17,7 +17,8 @@ v1/
   skills/ai-eyes/SKILL.md  # 给 agent 的技能说明（引用格式与四条硬规则）
   docs/skill-是什么.md     # 写给不熟悉 skill 机制的人
   tests/
-    test_eyes.py         # 14 项冒烟测试，零依赖
+    test_eyes.py         # 15 项冒烟测试，零依赖
+    test_verify.py       # 6 项审计规则测试（5 种判词）
     answer_good.md / answer_bad.md  # 审计示例（由 --write-samples 生成）
 ```
 
@@ -63,13 +64,14 @@ python rival_eye\eyes.py list --json
 ## 验收
 
 ```powershell
-python tests\test_eyes.py                        # 14 项全过
+python tests\test_eyes.py                        # 15 项全过
+python tests\test_verify.py                      # 6 项全过（审计规则）
 python scripts\verify_evidence.py --write-samples
 python scripts\verify_evidence.py --answer tests\answer_good.md   # PASS, exit 0
 python scripts\verify_evidence.py --answer tests\answer_bad.md    # UNGROUNDED, exit 1
 ```
 
-退出码：`0` 成功 / `2` 找不到窗口（含歧义）/ `3` 捕获失败（最小化、黑屏）/ `4` 参数错误。
+退出码：`0` 成功 / `2` 找不到窗口（含歧义）/ `3` 捕获失败（最小化、黑屏）/ `4` 参数错误 / `5` 敏感窗口拒绝。
 
 ## 边界
 

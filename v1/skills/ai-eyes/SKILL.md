@@ -22,7 +22,8 @@ description: 按名字/进程/句柄捕获 Windows 窗口，返回带 capture_id
 - **网页内容和交互** → 先用 `browser-skill`：DOM、控制台、网络请求比像素更准，还能点击填表
 - **需要滚动/点击才能看到的内容** → browser-skill
 - **敏感窗口** → 直接拒绝，不截：
-  `1Password` / `KeePass` / `Bitwarden` / 密码管理器 / 网银 / 支付页面 / 含密码的输入框
+  `1Password` / `KeePass` / `Bitwarden` / 密码管理器 / 网银 / 支付页面 / 含密码的输入框。
+  代码层也会拦（exit `5`，`reason: sensitive`）；只有用户**明确要求**时才能加 `--allow-sensitive`，且要在回答里说明截了敏感窗口。
 
 ## 安装（一次）
 
@@ -58,7 +59,8 @@ python $eyes latest --json
 在源码仓库里开发时，把 `$eyes` 换成 `<仓库>\v1\rival_eye\eyes.py` 即可（同一份代码）。
 
 - JSON 走 stdout，日志走 stderr；中文被转义成 `\uXXXX`，JSON 解析后就是中文。
-- 退出码：`0` 成功 / `2` 找不到窗口（含歧义）/ `3` 捕获失败（最小化、黑屏）/ `4` 参数错误。
+- 退出码：`0` 成功 / `2` 找不到窗口（含歧义）/ `3` 捕获失败（最小化、黑屏）/ `4` 参数错误 /
+  `5` 敏感窗口拒绝。
 - 首次使用或换机器先跑 `doctor`：`python` / `pillow` / `evidence_dir` / `windows` 四项必须 `ok`；
   `ocr` / `tkinter` 是可选，缺了不影响截图。
 

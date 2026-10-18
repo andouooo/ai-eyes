@@ -274,6 +274,19 @@ def test_crop_and_scaling():
 
 
 @test
+def test_sensitive_guard():
+    """密码管理器 / 网银：代码层直接拒绝，不信 SKILL.md 的自觉。"""
+    assert eye._is_sensitive({"process": "Bitwarden.exe", "title": "Bitwarden"})
+    assert eye._is_sensitive({"process": "chrome.exe", "title": "网上银行 - 登录"})
+    assert not eye._is_sensitive({"process": "chrome.exe", "title": "GitHub - Google Chrome"})
+
+    with _FixtureWindow(title="Bitwarden TEST") as _win:
+        code, out = _cli("capture", "--title", "Bitwarden TEST")
+        assert code == 5, "敏感窗口应当 exit 5，实际 %s" % code
+        assert isinstance(out, dict) and out.get("reason") == "sensitive", out
+
+
+@test
 def test_cli_exit_codes():
     code, wins = _cli("list", "--json")
     assert code == 0 and isinstance(wins, list) and wins

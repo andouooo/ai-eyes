@@ -80,7 +80,7 @@ install.ps1         → 把 SKILL.md + bin\ 复制进技能目录（自包含，
 ## 修改 skill 的安全流程
 
 1. 改 `SKILL.md`：只动正文，先别动 frontmatter 的 `description`（改了会影响触发，需要重新验证）。
-2. 改代码：跑测试 `python tests\test_eyes.py`（11 项）。
+2. 改代码：跑测试 `python tests\test_eyes.py`（15 项）和 `python tests\test_verify.py`（6 项审计规则）。
 3. 跑一次真实调用：`capture --process <某个窗口> --json`，确认 JSON 字段没变。
 4. 重新装：把 `v1\skills\ai-eyes\SKILL.md` 复制到 `~\.dsh\skills\ai-eyes\SKILL.md`。
 5. 新会话里说一句触发词（“看一眼这个窗口”），看它会不会主动用。
