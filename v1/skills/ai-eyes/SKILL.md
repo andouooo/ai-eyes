@@ -37,6 +37,7 @@ python $eyes list --json --process chrome
 python $eyes capture --process chrome --json
 python $eyes capture --query browser --json
 python $eyes capture --hwnd 0x0007094C --json
+python $eyes capture --process qq --restore --json     # 最小化也能截（会闪一下，不抢焦点）
 python $eyes capture --title "Visual Studio Code" --max-width 1280 --json
 python $eyes latest --json
 ```
@@ -84,6 +85,7 @@ python $eyes latest --json
 ```
 
 - `capture_id` 是 ULID，**按字符串排序 = 按时间排序**。
+- `restored`（可选，`true`）：这张是临时还原最小化窗口后截的。
 - `seq` 全局递增，`window_seq` 同一个 hwnd 递增。
 - 证据落在 `~/.ai-eyes`（可用环境变量 `AI_EYES_HOME` 改），只保留最近 200 张 PNG，`index.jsonl` 不删。
 
@@ -99,7 +101,10 @@ python $eyes latest --json
    `--all` 才显示它们；显式 `--process powershell` 仍然可以截。
 4. **多候选**：前台窗口优先 → 否则 Z 序最上 → 标题差得大就返回
    `{"ambiguous": true, "candidates": [...]}`，**这时必须问用户选哪个**，不要自己猜。
-5. **最小化**：不返回黑图，报 `minimized`。要么请用户还原，要么换一个窗口。
+5. **最小化**：系统会停止为它渲染，像素根本不存在，所以默认返回 `minimized` 而不是黑图。
+   加 `--restore` 才会**不激活地还原 → 截一张 → 再放回最小化**（约 0.5 秒，窗口会闪一下，
+   但不抢焦点；托盘类应用可能被拉出来）。这样截到的记录会带 `"restored": true`，
+   引用时照实说“这是临时还原后截的”。
 
 ## 四条硬规则（必须遵守）
 

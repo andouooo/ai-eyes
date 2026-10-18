@@ -432,18 +432,40 @@ def _choose(cands: list[dict], reason: str) -> dict | None:
 
 # ---------------------------------------------------------------- 捕获
 
-def capture_window(hwnd, max_width: int = 1280):
+SW_SHOWNOACTIVATE = 4
+SW_MINIMIZE = 6
+
+
+def capture_window(hwnd, max_width: int = 1280, restore_minimized: bool = False):
     """PrintWindow 捕获窗口内容（被遮挡也能截到，Chromium/Electron 有效）。
 
     最小化 / 黑屏 / 无法渲染都返回 None；返回 PIL RGB 图，超过 max_width 时降采样。
-    """
-    from PIL import Image, ImageStat
 
+    ``restore_minimized=True``：最小化窗口系统不再渲染，像素根本不存在。这时先
+    “不激活地还原”（SW_SHOWNOACTIVATE，抢不到焦点），截完再放回最小化。代价是
+    窗口会在屏幕上闪一下，托盘类应用可能被拉出来——所以默认关闭，由调用方显式开启。
+    """
     hwnd = _as_hwnd(hwnd)
     if not user32.IsWindow(hwnd):
         return None
+
+    restored = False
     if user32.IsIconic(hwnd):
-        return None
+        if not restore_minimized:
+            return None
+        user32.ShowWindow(hwnd, SW_SHOWNOACTIVATE)
+        time.sleep(0.45)                     # 等一帧渲染出来
+        restored = True
+
+    try:
+        return _grab(hwnd, max_width)
+    finally:
+        if restored and not user32.IsIconic(hwnd):
+            user32.ShowWindow(hwnd, SW_MINIMIZE)
+
+
+def _grab(hwnd, max_width: int):
+    from PIL import Image, ImageStat
 
     left, top, right, bottom = _window_bounds(hwnd)
     wdt, hgt = right - left, bottom - top
@@ -560,17 +582,25 @@ def _cmd_capture(args) -> int:
         return 2
 
     hwnd = win["hwnd"]
-    img = capture_window(hwnd, max_width=args.max_width)
+    was_minimized = bool(user32.IsIconic(hwnd))
+    img = capture_window(hwnd, max_width=args.max_width,
+                         restore_minimized=bool(args.restore))
     if img is None:
-        if user32.IsIconic(hwnd):
-            return _fail("minimized", "窗口已最小化，请先还原", 3)
+        if was_minimized:
+            if args.restore:
+                return _fail("minimized", "窗口已最小化，且这次还原后仍然截不到（可能被托盘接管）", 3)
+            return _fail("minimized",
+                         "窗口已最小化；加 --restore 可先不激活地还原、截完放回", 3)
         if not user32.IsWindow(hwnd):
             return _fail("window_gone", "窗口已关闭", 3)
         return _fail("capture_failed",
                      "捕获失败：可能独占全屏 / GPU 独占，建议无边框窗口化", 3)
 
+    extra = {"restored": True} if (was_minimized and args.restore) else None
     record = evidence.capture(img, win, trigger=args.trigger, source="window",
-                              locked=bool(selector))
+                              locked=bool(selector), extra=extra)
+    if extra:
+        sys.stderr.write("[eyes] 窗口曾最小化：已临时还原截图并放回（不抢焦点）\n")
     _emit(record)
     return 0
 
@@ -670,6 +700,8 @@ def build_parser() -> _Parser:
     cap = sub.add_parser("capture", help="截一张图并写入证据")
     _target(cap)
     cap.add_argument("--max-width", type=int, default=1280, help="最长边像素（默认 1280）")
+    cap.add_argument("--restore", action="store_true",
+                     help="窗口最小化时先不激活地还原、截完放回（会闪一下，但不抢焦点）")
     cap.add_argument("--trigger", default="agent", help="触发者标记（默认 agent）")
     cap.add_argument("--json", action="store_true", help="兼容参数，输出本来就是 JSON")
 

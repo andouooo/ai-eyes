@@ -36,6 +36,9 @@ python -m rival_eye.eyes list --json
 
 `doctor` 会检查 Python / Pillow / 证据目录可写 / 能枚举到窗口 / DPI 感知，现场演示前先跑一次。
 
+**最小化的窗口**：系统不再为它渲染，默认报 `minimized`（不给黑图）。加 `--restore` 会先“不激活地还原”
+再截、随后放回最小化（约 0.5 秒，窗口闪一下，但抢不到焦点），记录里会带 `"restored": true`。
+
 证据落在 `~/.ai-eyes`（`AI_EYES_HOME` 可改）：`captures/*.png` + `index.jsonl` + `latest.json`，只留最近 200 张 PNG。
 
 ## 验收

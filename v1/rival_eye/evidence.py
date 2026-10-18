@@ -114,8 +114,11 @@ def _window_seq(hwnd_hex: str, recs: list[dict]) -> int:
 # ---------------------------------------------------------------- 写证据
 
 def capture(img, window, trigger: str = "agent", source: str = "window",
-            locked: bool = False) -> dict:
-    """把一张 PIL 图写成一等证据，返回记录（与 index 里那行一致）。"""
+            locked: bool = False, extra: dict | None = None) -> dict:
+    """把一张 PIL 图写成一等证据，返回记录（与 index 里那行一致）。
+
+    ``extra`` 追加到记录顶层（例如最小化窗口临时还原后标记 ``{"restored": True}``）。
+    """
     if img is None:
         raise ValueError("capture() 收到空图")
     _ensure_dirs()
@@ -156,6 +159,9 @@ def capture(img, window, trigger: str = "agent", source: str = "window",
                 "sha256": hashlib.sha256(data).hexdigest(),
             },
         }
+
+        if extra:
+            record.update(extra)
 
         line = json.dumps(record, ensure_ascii=False)
         with open(INDEX, "a", encoding="utf-8", newline="\n") as fh:

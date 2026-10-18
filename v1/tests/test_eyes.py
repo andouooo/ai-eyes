@@ -236,6 +236,24 @@ def test_minimized_returns_none():
 
 
 @test
+def test_capture_minimized_with_restore():
+    """最小化窗口：默认返回 None；显式 restore_minimized 时能截，且截完放回最小化。"""
+    with _FixtureWindow(title="EYES_TEST_RESTORE") as win:
+        hwnd = win["hwnd"]
+        assert _capture_ready(hwnd) is not None
+        eye.user32.ShowWindow(hwnd, 6)                # SW_MINIMIZE
+        try:
+            assert _wait(lambda: bool(eye.user32.IsIconic(hwnd)), 5), "最小化没生效"
+            assert eye.capture_window(hwnd) is None, "默认不该截最小化窗口"
+            img = eye.capture_window(hwnd, restore_minimized=True)
+            assert img is not None, "不激活还原后仍截不到"
+            assert _mean(img) > 5, "还原后截到的是黑图"
+            assert eye.user32.IsIconic(hwnd), "截完应当放回最小化"
+        finally:
+            eye.user32.ShowWindow(hwnd, 9)             # SW_RESTORE
+
+
+@test
 def test_cli_exit_codes():
     code, wins = _cli("list", "--json")
     assert code == 0 and isinstance(wins, list) and wins
