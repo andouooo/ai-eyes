@@ -29,7 +29,7 @@ AI 的眼睛把这条链压成一条热键：**截 → 问 → 读**。不配 AP
 
 ## 适配与边界
 
-- DeepSeek Harness 完整适配；ZCode 早期适配；其他客户端走屏幕兜底或需适配
+- 完整验证在 DeepSeek Harness（开源客户端）；ZCode 早期适配；闭源模型 / 客户端（ChatGPT、Claude、Gemini 等）尚未测试
 - Windows only；独占全屏需无边框窗口化；中文输入需要键盘焦点
 
 ## 技术链路
