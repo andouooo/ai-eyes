@@ -59,7 +59,21 @@ rival_eye/eyes.py   → 干活：枚举窗口、PrintWindow 截图、CLI
 rival_eye/evidence.py → 记账：capture_id、sha256、索引、latest
 scripts/verify_evidence.py → 裁判：回答有没有真看图（零模型规则）
 tests/              → 保证改动没把上面弄坏
+install.ps1         → 把 SKILL.md + bin\ 复制进技能目录（自包含，不依赖仓库路径）
 ```
+
+装好之后技能目录长这样，**挪到任何机器都能用**：
+
+```text
+%USERPROFILE%\.dsh\skills\ai-eyes\
+├── SKILL.md
+└── bin\
+    ├── verify_evidence.py
+    └── rival_eye\{eyes,evidence}.py
+```
+
+关键点：说明书里写的命令是 `$env:USERPROFILE\.dsh\skills\ai-eyes\bin\rival_eye\eyes.py`，
+所以 agent 在任何工作目录都能执行，不会因为“没 cd 到项目里”而失败。
 
 好处：说明书可以随便改文案，不影响代码；代码可以重构，不影响 agent 的用法契约。
 

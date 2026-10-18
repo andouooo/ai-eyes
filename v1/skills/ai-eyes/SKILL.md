@@ -24,14 +24,26 @@ description: 按名字/进程/句柄捕获 Windows 窗口，返回带 capture_id
 - **敏感窗口** → 直接拒绝，不截：
   `1Password` / `KeePass` / `Bitwarden` / 密码管理器 / 网银 / 支付页面 / 含密码的输入框
 
-## 命令
+## 安装（一次）
 
-**任何工作目录都能跑**：直接给绝对路径，不要依赖 `cd`（换机器只改这一个根路径）：
+技能目录自带代码，只要把整个 `ai-eyes/` 放进 DSH 的用户技能目录即可：
 
 ```powershell
-$eyes = "E:\桌面\第一个skill\v1\rival_eye\eyes.py"
+# 在仓库的 v1 目录里执行（或把整个 ai-eyes/ 手动拷进技能目录）
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+# → %USERPROFILE%\.dsh\skills\ai-eyes\（SKILL.md + bin\，自包含）
+```
 
-python $eyes doctor --json                            # 自检：依赖 / 证据目录 / 窗口 / OCR
+依赖只有一个：`pip install Pillow`（`doctor` 会告诉你缺什么）。
+
+## 命令
+
+**任何工作目录都能跑**：命令里用技能自带的路径，不要依赖 `cd`：
+
+```powershell
+$eyes = "$env:USERPROFILE\.dsh\skills\ai-eyes\bin\rival_eye\eyes.py"
+
+python $eyes doctor --json                             # 自检：依赖 / 证据目录 / 窗口 / OCR
 python $eyes list --json
 python $eyes list --json --process chrome
 python $eyes capture --process chrome --json
@@ -42,11 +54,12 @@ python $eyes capture --title "Visual Studio Code" --max-width 1280 --json
 python $eyes latest --json
 ```
 
-等价写法：`cd E:\桌面\第一个skill\v1` 后 `python -m rival_eye.eyes ...`。
+在源码仓库里开发时，把 `$eyes` 换成 `<仓库>\v1\rival_eye\eyes.py` 即可（同一份代码）。
 
 - JSON 走 stdout，日志走 stderr；中文被转义成 `\uXXXX`，JSON 解析后就是中文。
 - 退出码：`0` 成功 / `2` 找不到窗口（含歧义）/ `3` 捕获失败（最小化、黑屏）/ `4` 参数错误。
-- 演示前先跑 `doctor`：全部 `ok` 再上台；`ocr` / `tkinter` 是可选，缺了不影响截图。
+- 首次使用或换机器先跑 `doctor`：`python` / `pillow` / `evidence_dir` / `windows` 四项必须 `ok`；
+  `ocr` / `tkinter` 是可选，缺了不影响截图。
 
 ### 窗口对象
 
@@ -123,16 +136,15 @@ python $eyes latest --json
 
 一条结论一个 ID；多个窗口各截各的，不要合并引用。
 
-## 自检（交付前）
+## 审计（回答有没有真看图）
 
 ```powershell
-$v1 = "E:\桌面\第一个skill\v1"
-python $v1\scripts\verify_evidence.py --answer $v1\tests\answer_good.md   # PASS, exit 0
-python $v1\scripts\verify_evidence.py --answer $v1\tests\answer_bad.md    # UNGROUNDED, exit 1
-python $v1\scripts\verify_evidence.py --answer my_answer.md --ocr         # 可选：OCR 核对引用文字
-```
+$verify = "$env:USERPROFILE\.dsh\skills\ai-eyes\bin\verify_evidence.py"
 
-（在 `v1` 目录里也可以写相对路径 `python scripts\verify_evidence.py ...`。）
+python $verify --answer my_answer.md              # PASS, exit 0
+python $verify --answer my_answer.md --ocr        # 可选：OCR 核对引用文字
+python $verify --write-samples                    # 用最新一条证据生成示例答案到 tests\
+```
 
 判词：`PASS` / `UNGROUNDED`（有视觉结论没引用）/ `MISSING`（ID 不存在）/ `STALE`（早于最后操作）/ `CONTRADICTED`（进程或文字对不上）。
 

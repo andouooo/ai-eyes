@@ -8,33 +8,46 @@
 
 ```text
 v1/
+  install.ps1                # 装进 %USERPROFILE%\.dsh\skills\ai-eyes（SKILL.md + bin\）
   rival_eye/
-    eyes.py       # 找窗口 / PrintWindow 截图 / CLI（list capture latest）
+    eyes.py       # 找窗口 / PrintWindow 截图 / CLI（list capture latest doctor）
     evidence.py   # 证据落盘：ULID ID、sha256、index.jsonl、latest.json
   scripts/
     verify_evidence.py   # 零模型审计：UNGROUNDED / MISSING / STALE / CONTRADICTED
   skills/ai-eyes/SKILL.md  # 给 agent 的技能说明（引用格式与四条硬规则）
+  docs/skill-是什么.md     # 写给不熟悉 skill 机制的人
   tests/
-    test_eyes.py         # 12 项冒烟测试，零依赖
+    test_eyes.py         # 13 项冒烟测试，零依赖
     answer_good.md / answer_bad.md  # 审计示例（由 --write-samples 生成）
 ```
 
-## 快速开始
+## 安装到 DSH（一次）
 
 ```powershell
-# 方式 A：任意目录，直接给绝对路径（推荐，skill 里也用这种）
-python "E:\桌面\第一个skill\v1\rival_eye\eyes.py" doctor --json
-python "E:\桌面\第一个skill\v1\rival_eye\eyes.py" list --json
-python "E:\桌面\第一个skill\v1\rival_eye\eyes.py" capture --process notepad --json
-python "E:\桌面\第一个skill\v1\rival_eye\eyes.py" latest --json
-
-# 方式 B：进目录后用模块调用（两种等价）
 cd v1
-pip install -r requirements.txt     # 只有 Pillow；winocr 可选（--ocr 才用）
-python -m rival_eye.eyes list --json
+pip install -r requirements.txt          # 只有 Pillow；winocr 可选（--ocr 才用）
+powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-`doctor` 会检查 Python / Pillow / 证据目录可写 / 能枚举到窗口 / DPI 感知，现场演示前先跑一次。
+装到 `%USERPROFILE%\.dsh\skills\ai-eyes\`（`SKILL.md` + `bin\`，**自包含**，不依赖仓库路径）。
+卸载：删掉那个目录即可。
+
+## 用法
+
+```powershell
+# 安装后，任意目录都能用
+$eyes = "$env:USERPROFILE\.dsh\skills\ai-eyes\bin\rival_eye\eyes.py"
+python $eyes doctor --json
+python $eyes list --json
+python $eyes capture --process notepad --json
+python $eyes latest --json
+
+# 或者直接在源码目录里跑（同一份代码）
+cd v1
+python rival_eye\eyes.py list --json
+```
+
+`doctor` 会检查 Python / Pillow / 证据目录可写 / 能枚举到窗口 / DPI 感知，换机器后先跑一次。
 
 **最小化的窗口**：系统不再为它渲染，默认报 `minimized`（不给黑图）。加 `--restore` 会先“不激活地还原”
 再截、随后放回最小化（约 0.5 秒，窗口闪一下，但抢不到焦点），记录里会带 `"restored": true`。
@@ -44,7 +57,7 @@ python -m rival_eye.eyes list --json
 ## 验收
 
 ```powershell
-python tests\test_eyes.py                        # 11 项全过
+python tests\test_eyes.py                        # 13 项全过
 python scripts\verify_evidence.py --write-samples
 python scripts\verify_evidence.py --answer tests\answer_good.md   # PASS, exit 0
 python scripts\verify_evidence.py --answer tests\answer_bad.md    # UNGROUNDED, exit 1
