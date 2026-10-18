@@ -17,7 +17,7 @@ v1/
   skills/ai-eyes/SKILL.md  # 给 agent 的技能说明（引用格式与四条硬规则）
   docs/skill-是什么.md     # 写给不熟悉 skill 机制的人
   tests/
-    test_eyes.py         # 13 项冒烟测试，零依赖
+    test_eyes.py         # 14 项冒烟测试，零依赖
     answer_good.md / answer_bad.md  # 审计示例（由 --write-samples 生成）
 ```
 
@@ -40,6 +40,7 @@ $eyes = "$env:USERPROFILE\.dsh\skills\ai-eyes\bin\rival_eye\eyes.py"
 python $eyes doctor --json
 python $eyes list --json
 python $eyes capture --process notepad --json
+python $eyes capture --process notepad --crop 0,0,640,400 --json   # 只截一块（原图像素）
 python $eyes latest --json
 
 # 或者直接在源码目录里跑（同一份代码）
@@ -52,12 +53,17 @@ python rival_eye\eyes.py list --json
 **最小化的窗口**：系统不再为它渲染，默认报 `minimized`（不给黑图）。加 `--restore` 会先“不激活地还原”
 再截、随后放回最小化（约 0.5 秒，窗口闪一下，但抢不到焦点），记录里会带 `"restored": true`。
 
+**空白风险**：Chromium 被完全遮挡时可能只画出框架、内容区一片白。这种图 mean 很高、不会被判黑，
+所以记录里会带 `"blank_warning": true`，提示你重截或加 `--restore`。
+
+`--max-width` 是**等比缩放**（先按原尺寸抓再缩），不会裁掉右边；只想看局部用 `--crop x,y,w,h`。
+
 证据落在 `~/.ai-eyes`（`AI_EYES_HOME` 可改）：`captures/*.png` + `index.jsonl` + `latest.json`，只留最近 200 张 PNG。
 
 ## 验收
 
 ```powershell
-python tests\test_eyes.py                        # 13 项全过
+python tests\test_eyes.py                        # 14 项全过
 python scripts\verify_evidence.py --write-samples
 python scripts\verify_evidence.py --answer tests\answer_good.md   # PASS, exit 0
 python scripts\verify_evidence.py --answer tests\answer_bad.md    # UNGROUNDED, exit 1

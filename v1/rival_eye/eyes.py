@@ -436,14 +436,17 @@ SW_SHOWNOACTIVATE = 4
 SW_MINIMIZE = 6
 
 
-def capture_window(hwnd, max_width: int = 1280, restore_minimized: bool = False):
+def capture_window(hwnd, max_width: int = 1280, restore_minimized: bool = False,
+                   crop=None):
     """PrintWindow 捕获窗口内容（被遮挡也能截到，Chromium/Electron 有效）。
 
-    最小化 / 黑屏 / 无法渲染都返回 None；返回 PIL RGB 图，超过 max_width 时降采样。
+    最小化 / 黑屏 / 无法渲染都返回 None；返回 PIL RGB 图。
 
-    ``restore_minimized=True``：最小化窗口系统不再渲染，像素根本不存在。这时先
-    “不激活地还原”（SW_SHOWNOACTIVATE，抢不到焦点），截完再放回最小化。代价是
-    窗口会在屏幕上闪一下，托盘类应用可能被拉出来——所以默认关闭，由调用方显式开启。
+    - ``max_width``：按原始尺寸抓完后等比缩小（**不是裁剪**）。
+    - ``crop=(x, y, w, h)``：在缩之前的原图上裁一块（省 token 用）。
+    - ``restore_minimized=True``：最小化窗口系统不再渲染，像素根本不存在。这时先
+      “不激活地还原”（SW_SHOWNOACTIVATE，抢不到焦点），截完再放回最小化。代价是
+      窗口会在屏幕上闪一下，托盘类应用可能被拉出来——所以默认关闭，由调用方显式开启。
     """
     hwnd = _as_hwnd(hwnd)
     if not user32.IsWindow(hwnd):
@@ -458,23 +461,21 @@ def capture_window(hwnd, max_width: int = 1280, restore_minimized: bool = False)
         restored = True
 
     try:
-        return _grab(hwnd, max_width)
+        return _grab(hwnd, max_width, crop=crop)
     finally:
         if restored and not user32.IsIconic(hwnd):
             user32.ShowWindow(hwnd, SW_MINIMIZE)
 
 
-def _grab(hwnd, max_width: int):
+def _grab(hwnd, max_width: int, crop=None):
     from PIL import Image, ImageStat
 
     left, top, right, bottom = _window_bounds(hwnd)
     wdt, hgt = right - left, bottom - top
     if wdt <= 0 or hgt <= 0:
         return None
-    if max_width and wdt > max_width:
-        hgt = max(1, int(round(hgt * max_width / wdt)))
-        wdt = max_width
 
+    # 必须按窗口原始尺寸建位图：PrintWindow 不会替你缩放，DC 小了只会把右边/下边裁掉
     hwnd_dc = user32.GetWindowDC(hwnd)
     if not hwnd_dc:
         return None
@@ -503,13 +504,33 @@ def _grab(hwnd, max_width: int):
         gdi32.DeleteDC(mem_dc)
         user32.ReleaseDC(hwnd, hwnd_dc)
 
+    if crop:
+        x, y, cw, ch = (int(v) for v in crop)
+        x = max(0, min(x, img.width - 1))
+        y = max(0, min(y, img.height - 1))
+        cw = max(1, min(cw, img.width - x))
+        ch = max(1, min(ch, img.height - y))
+        img = img.crop((x, y, x + cw, y + ch))
+
     if max_width and img.width > max_width:
-        img = img.resize((max_width, int(img.height * max_width / img.width)),
+        img = img.resize((max_width, max(1, int(round(img.height * max_width / img.width)))),
                          Image.Resampling.BILINEAR)
     # 全黑 = 没截到（独占全屏 / GPU 独占 / 窗口刚销毁），当失败处理，别把黑图当证据
     if ImageStat.Stat(img.convert("L")).mean[0] < 5:
         return None
     return img
+
+
+def looks_blank(img) -> bool:
+    """近似“整块纯色”：Chromium 被完全遮挡时可能只画出框架、内容区一片白。
+
+    只当提醒，不当失败——空白的记事本、纯色画布也可能真的长这样。
+    """
+    from PIL import ImageStat
+
+    if img is None or img.width * img.height < 20000:
+        return False
+    return ImageStat.Stat(img.convert("L")).stddev[0] < 2.0
 
 
 # ---------------------------------------------------------------- CLI
@@ -583,7 +604,7 @@ def _cmd_capture(args) -> int:
 
     hwnd = win["hwnd"]
     was_minimized = bool(user32.IsIconic(hwnd))
-    img = capture_window(hwnd, max_width=args.max_width,
+    img = capture_window(hwnd, max_width=args.max_width, crop=args.crop,
                          restore_minimized=bool(args.restore))
     if img is None:
         if was_minimized:
@@ -596,11 +617,18 @@ def _cmd_capture(args) -> int:
         return _fail("capture_failed",
                      "捕获失败：可能独占全屏 / GPU 独占，建议无边框窗口化", 3)
 
-    extra = {"restored": True} if (was_minimized and args.restore) else None
+    extra = {}
+    if was_minimized and args.restore:
+        extra["restored"] = True
+    if looks_blank(img):
+        extra["blank_warning"] = True
     record = evidence.capture(img, win, trigger=args.trigger, source="window",
-                              locked=bool(selector), extra=extra)
-    if extra:
+                              locked=bool(selector), extra=extra or None)
+    if extra.get("restored"):
         sys.stderr.write("[eyes] 窗口曾最小化：已临时还原截图并放回（不抢焦点）\n")
+    if extra.get("blank_warning"):
+        sys.stderr.write("[eyes] 警告：整张图近乎纯色，可能是 Chromium 被遮挡只画了框架；"
+                         "建议加 --restore 或让窗口露出来一点再截\n")
     _emit(record)
     return 0
 
@@ -679,6 +707,17 @@ def _cmd_doctor(args) -> int:
     return 0 if ok else 1
 
 
+def _crop_arg(value):
+    """--crop x,y,w,h（原图像素，缩放前）。"""
+    try:
+        parts = [int(x) for x in str(value).replace(" ", "").split(",")]
+    except ValueError:
+        raise argparse.ArgumentTypeError("--crop 需要 x,y,w,h 四个整数") from None
+    if len(parts) != 4 or parts[0] < 0 or parts[1] < 0 or parts[2] <= 0 or parts[3] <= 0:
+        raise argparse.ArgumentTypeError("--crop 需要 x,y,w,h（w/h > 0，x/y >= 0）")
+    return tuple(parts)
+
+
 def build_parser() -> _Parser:
     p = _Parser(prog="python -m rival_eye.eyes",
                 description="AI 的眼睛：按名字/进程/句柄捕获窗口，产出带 capture_id 的截图证据。")
@@ -700,6 +739,8 @@ def build_parser() -> _Parser:
     cap = sub.add_parser("capture", help="截一张图并写入证据")
     _target(cap)
     cap.add_argument("--max-width", type=int, default=1280, help="最长边像素（默认 1280）")
+    cap.add_argument("--crop", type=_crop_arg, metavar="X,Y,W,H",
+                     help="只截一块（原图像素，缩放前），省 token 用")
     cap.add_argument("--restore", action="store_true",
                      help="窗口最小化时先不激活地还原、截完放回（会闪一下，但不抢焦点）")
     cap.add_argument("--trigger", default="agent", help="触发者标记（默认 agent）")

@@ -50,6 +50,7 @@ python $eyes capture --process chrome --json
 python $eyes capture --query browser --json
 python $eyes capture --hwnd 0x0007094C --json
 python $eyes capture --process qq --restore --json     # 最小化也能截（会闪一下，不抢焦点）
+python $eyes capture --process qq --crop 0,0,640,400 --json   # 只截一块（原图像素，省 token）
 python $eyes capture --title "Visual Studio Code" --max-width 1280 --json
 python $eyes latest --json
 ```
@@ -99,6 +100,8 @@ python $eyes latest --json
 
 - `capture_id` 是 ULID，**按字符串排序 = 按时间排序**。
 - `restored`（可选，`true`）：这张是临时还原最小化窗口后截的。
+- `blank_warning`（可选，`true`）：整张图近乎纯色，可能是 Chromium 被完全遮挡、只画了框架。
+  看到它就别硬讲内容：加 `--restore` 或让窗口露出来一点再截。
 - `seq` 全局递增，`window_seq` 同一个 hwnd 递增。
 - 证据落在 `~/.ai-eyes`（可用环境变量 `AI_EYES_HOME` 改），只保留最近 200 张 PNG，`index.jsonl` 不删。
 
@@ -153,7 +156,8 @@ python $verify --write-samples                    # 用最新一条证据生成�
 ## Token 纪律
 
 - 每个任务**最多 6 张**截图，够用就停。
-- 优先 `--max-width 1280`；只看局部时先裁剪再问，不要反复整屏。
+- 优先 `--max-width 1280`；只看局部时用 `--crop x,y,w,h`（原图像素，缩放前）先裁再问，不要反复整屏。
+- 截图记录里出现 `"blank_warning": true` 时，先重截或 `--restore`，别对着空白图讲内容。
 - 看完就写摘要（窗口 + 结论 + `[eye_...]`），**不要把图当上下文一直挂着**。
 - 同一窗口重复看时，先 `latest --json` 确认时间戳，别截重复的图。
 - 一张 1280 的图约 1–2k token；当视频流用是最贵的用法，本工具不做。

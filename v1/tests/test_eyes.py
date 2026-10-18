@@ -254,6 +254,26 @@ def test_capture_minimized_with_restore():
 
 
 @test
+def test_crop_and_scaling():
+    """--crop 只截局部；--max-width 是等比缩放而不是裁掉右边。"""
+    with _FixtureWindow(title="EYES_TEST_CROP") as win:
+        hwnd = win["hwnd"]
+        full = _capture_ready(hwnd)
+        assert full is not None
+
+        img = eye.capture_window(hwnd, crop=(10, 10, 200, 150))
+        assert img is not None and img.size == (200, 150), img.size
+
+        small = eye.capture_window(hwnd, max_width=200)
+        assert small is not None and small.width == 200
+        expect_h = round(full.height * 200 / full.width)
+        assert abs(small.height - expect_h) <= 2, (small.size, full.size)
+
+        assert eye.looks_blank(Image.new("RGB", (300, 200), (255, 255, 255)))
+        assert not eye.looks_blank(full)
+
+
+@test
 def test_cli_exit_codes():
     code, wins = _cli("list", "--json")
     assert code == 0 and isinstance(wins, list) and wins
@@ -266,6 +286,9 @@ def test_cli_exit_codes():
 
     code, out = _cli("capture", "--process", "no-such-process-xyz", "--max-width", "0")
     assert code == 4, "参数错误应当 exit 4，实际 %s" % code
+
+    code, out = _cli("capture", "--crop", "1,2,3")
+    assert code == 4, "--crop 格式错误应当 exit 4，实际 %s" % code
 
     code, out = _cli("latest", "--json")
     assert code == 0 and isinstance(out, dict) and out.get("capture_id")
