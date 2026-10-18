@@ -19,6 +19,11 @@ import sys
 import time
 from pathlib import Path
 
+if __package__ in (None, ""):
+    # 按文件路径直接运行（python ...\v1\rival_eye\eyes.py）时，把包根塞进 sys.path。
+    # 这样 skill 里可以写绝对路径调用，不依赖“必须先 cd 到 v1”。
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 if sys.platform != "win32":  # pragma: no cover - 本项目只面向 Windows
     raise ImportError("rival_eye.eyes 仅支持 Windows")
 
@@ -148,6 +153,7 @@ class _BMIH(ctypes.Structure):
 class _DPI:
     """进程级 DPI 感知。只做一次，失败就算了（老系统没有这些 API）。"""
     done = False
+    ok = False
 
     @classmethod
     def enable(cls) -> None:
@@ -157,16 +163,19 @@ class _DPI:
         try:  # Win10 1703+：PER_MONITOR_AWARE_V2
             user32.SetProcessDpiAwarenessContext.argtypes = [ctypes.c_void_p]
             if user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4)):
+                cls.ok = True
                 return
         except Exception:
             pass
         try:  # Win8.1+
-            ctypes.windll.shcore.SetProcessDpiAwareness(2)
+            if ctypes.windll.shcore.SetProcessDpiAwareness(2) == 0:
+                cls.ok = True
             return
         except Exception:
             pass
         try:  # Vista+
             user32.SetProcessDPIAware()
+            cls.ok = True
         except Exception:
             pass
 
@@ -576,6 +585,70 @@ def _cmd_latest(args) -> int:
     return 0
 
 
+def _cmd_doctor(args) -> int:
+    """现场演示前的自检：依赖、证据目录、窗口枚举、OCR、测试夹具。"""
+    import platform
+    import tempfile
+
+    import rival_eye.evidence as evidence
+
+    checks = []
+
+    def add(name, ok, detail=""):
+        checks.append({"name": name, "ok": bool(ok), "detail": str(detail)})
+
+    add("python", sys.version_info >= (3, 9), platform.python_version())
+    try:
+        from PIL import Image
+        add("pillow", True, getattr(Image, "__version__", "?"))
+    except Exception as exc:
+        add("pillow", False, exc)
+
+    try:
+        evidence._ensure_dirs()
+        probe = Path(evidence.AI_EYES_HOME) / ".doctor.tmp"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+        add("evidence_dir", True, evidence.AI_EYES_HOME)
+    except Exception as exc:
+        add("evidence_dir", False, exc)
+
+    try:
+        wins = list_windows()
+        add("windows", bool(wins), "%d 个可截窗口" % len(wins))
+    except Exception as exc:
+        add("windows", False, exc)
+
+    try:
+        import winocr  # noqa: F401
+        add("ocr", True, "winocr 已装（--ocr 可用）")
+    except Exception:
+        add("ocr", False, "未装 winocr（--ocr 才会用到，可选）")
+
+    try:
+        import tkinter  # noqa: F401
+        add("tkinter", True, "测试夹具可用")
+    except Exception:
+        add("tkinter", False, "未装 tkinter（跑 tests 需要）")
+
+    add("dpi", _DPI.ok, "per-monitor v2" if _DPI.ok else "未启用，缩放 >100% 时截图会错位")
+
+    latest = None
+    rec = evidence.latest()
+    if rec:
+        latest = {
+            "capture_id": rec.get("capture_id"),
+            "ts": rec.get("ts"),
+            "process": (rec.get("window") or {}).get("process"),
+            "title": (rec.get("window") or {}).get("title"),
+        }
+
+    required = ("python", "pillow", "evidence_dir", "windows")
+    ok = all(c["ok"] for c in checks if c["name"] in required)
+    _emit({"ok": ok, "checks": checks, "latest": latest})
+    return 0 if ok else 1
+
+
 def build_parser() -> _Parser:
     p = _Parser(prog="python -m rival_eye.eyes",
                 description="AI 的眼睛：按名字/进程/句柄捕获窗口，产出带 capture_id 的截图证据。")
@@ -603,6 +676,9 @@ def build_parser() -> _Parser:
     lat = sub.add_parser("latest", help="打印最近一条证据")
     lat.add_argument("--json", action="store_true", help="兼容参数，输出本来就是 JSON")
 
+    doc = sub.add_parser("doctor", help="自检：依赖 / 证据目录 / 窗口枚举 / OCR / 测试夹具")
+    doc.add_argument("--json", action="store_true", help="兼容参数，输出本来就是 JSON")
+
     return p
 
 
@@ -617,6 +693,8 @@ def main(argv=None) -> int:
             return _cmd_capture(args)
         if args.cmd == "latest":
             return _cmd_latest(args)
+        if args.cmd == "doctor":
+            return _cmd_doctor(args)
         raise ValueError("未知子命令：%r" % args.cmd)
     except ValueError as exc:
         return _fail("bad_args", str(exc), 4)

@@ -26,21 +26,26 @@ description: 按名字/进程/句柄捕获 Windows 窗口，返回带 capture_id
 
 ## 命令
 
-在项目根目录执行（本机路径：`E:\桌面\第一个skill\v1`，换机器改这一行）：
+**任何工作目录都能跑**：直接给绝对路径，不要依赖 `cd`（换机器只改这一个根路径）：
 
 ```powershell
-cd E:\桌面\第一个skill\v1
-python -m rival_eye.eyes list --json
-python -m rival_eye.eyes list --json --process chrome
-python -m rival_eye.eyes capture --process chrome --json
-python -m rival_eye.eyes capture --query browser --json
-python -m rival_eye.eyes capture --hwnd 0x0007094C --json
-python -m rival_eye.eyes capture --title "Visual Studio Code" --max-width 1280 --json
-python -m rival_eye.eyes latest --json
+$eyes = "E:\桌面\第一个skill\v1\rival_eye\eyes.py"
+
+python $eyes doctor --json                            # 自检：依赖 / 证据目录 / 窗口 / OCR
+python $eyes list --json
+python $eyes list --json --process chrome
+python $eyes capture --process chrome --json
+python $eyes capture --query browser --json
+python $eyes capture --hwnd 0x0007094C --json
+python $eyes capture --title "Visual Studio Code" --max-width 1280 --json
+python $eyes latest --json
 ```
+
+等价写法：`cd E:\桌面\第一个skill\v1` 后 `python -m rival_eye.eyes ...`。
 
 - JSON 走 stdout，日志走 stderr；中文被转义成 `\uXXXX`，JSON 解析后就是中文。
 - 退出码：`0` 成功 / `2` 找不到窗口（含歧义）/ `3` 捕获失败（最小化、黑屏）/ `4` 参数错误。
+- 演示前先跑 `doctor`：全部 `ok` 再上台；`ocr` / `tkinter` 是可选，缺了不影响截图。
 
 ### 窗口对象
 
@@ -116,14 +121,17 @@ python -m rival_eye.eyes latest --json
 ## 自检（交付前）
 
 ```powershell
-python scripts\verify_evidence.py --answer tests\answer_good.md            # PASS, exit 0
-python scripts\verify_evidence.py --answer tests\answer_bad.md             # UNGROUNDED, exit 1
-python scripts\verify_evidence.py --answer my_answer.md --ocr              # 可选：OCR 核对引用文字
+$v1 = "E:\桌面\第一个skill\v1"
+python $v1\scripts\verify_evidence.py --answer $v1\tests\answer_good.md   # PASS, exit 0
+python $v1\scripts\verify_evidence.py --answer $v1\tests\answer_bad.md    # UNGROUNDED, exit 1
+python $v1\scripts\verify_evidence.py --answer my_answer.md --ocr         # 可选：OCR 核对引用文字
 ```
+
+（在 `v1` 目录里也可以写相对路径 `python scripts\verify_evidence.py ...`。）
 
 判词：`PASS` / `UNGROUNDED`（有视觉结论没引用）/ `MISSING`（ID 不存在）/ `STALE`（早于最后操作）/ `CONTRADICTED`（进程或文字对不上）。
 
-`--write-samples` 会用最新一条证据重写 `tests/answer_good.md` 与 `tests/answer_bad.md`。
+`--write-samples` 会用最新一条证据重写 `tests/answer_good.md` 与 `tests/answer_bad.md`；换机器或重新截图后先跑一次。
 
 ## Token 纪律
 

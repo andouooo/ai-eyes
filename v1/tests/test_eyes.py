@@ -256,6 +256,15 @@ def test_cli_exit_codes():
 # ---------------------------------------------------------------- 证据层
 
 @test
+def test_doctor():
+    code, out = _cli("doctor", "--json")
+    assert code == 0, "doctor 应当 exit 0，实际 %s" % code
+    assert isinstance(out, dict) and out.get("ok") is True
+    names = {c["name"] for c in out["checks"]}
+    assert {"python", "pillow", "evidence_dir", "windows"} <= names, names
+
+
+@test
 def test_capture_ids_sortable():
     a = evidence.new_capture_id()
     time.sleep(0.005)
